@@ -1,13 +1,11 @@
 package com.mongodb.starter.database.versioning;
 
-import com.mongodb.DBObject;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.starter.StarterConfiguration;
 import com.mongodb.starter.database.dto.Versioning;
 import com.mongodb.starter.database.repository.VersioningRepository;
 import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperation;
 import com.mongodb.starter.database.versioning.exception.UnknownCommand;
-import org.bson.conversions.Bson;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -20,6 +18,8 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.mongodb.starter.database.versioning.Defines.SUB_VERSION_DELIMITER;
@@ -103,7 +103,7 @@ public class VersioningHandler {
         List<?> queryParts;
         try {
             filePayload = Files.readString(migrationFile.toPath());
-            queryParts = VersioningUtils.queryAnalyze(filePayload.split("\\."));
+            queryParts = VersioningUtils.queryAnalyze(splitWithDelimiter(filePayload, "(", "\\.").toArray());
         } catch (IOException e) {
             return;
         } catch (UnknownCommand unknownCommand) {
@@ -115,15 +115,54 @@ public class VersioningHandler {
         //mongoTemplate.getCollection("").createIndexes();
 
         if(isFalse(queryParts.isEmpty())) {
-            Class<?> classZ = (queryParts.get(2) instanceof DBObject) ? Bson.class : queryParts.get(2).getClass();
+            Class<?>[] classes = queryParts.get(2).getClass().getInterfaces();
+
+            int interfaces = classes.length;
+
             MongoCollection<org.bson.Document> document = mongoTemplate.getCollection(queryParts.get(0).toString());
             try {
-                Method method = document.getClass().getMethod(queryParts.get(1).toString(), classZ, queryParts.get(3).getClass());
-                method.setAccessible(true);
-                method.invoke(document, queryParts.get(2), queryParts.get(3));
-            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                Method method;
+                if(queryParts.get(4).equals(true)) {
+                    while(true) {
+                        try {
+                            method = document.getClass().getMethod(queryParts.get(1).toString(), classes[interfaces - 1], queryParts.get(3).getClass());
+                            break;
+                        } catch (NoSuchMethodException e) {
+                            if(--interfaces == 0) {
+                                return;
+                            }
+                        }
+                    }
+                    method.setAccessible(true);
+                    method.invoke(document, queryParts.get(2), queryParts.get(3));
+
+                }
+                else {
+                    while(true) {
+                        try {
+                            method = document.getClass().getMethod(queryParts.get(1).toString(), classes[interfaces - 1]);
+                            break;
+                        } catch (NoSuchMethodException e) {
+                            if(--interfaces == 0) {
+                                return;
+                            }
+                        }
+                    }
+                    method.setAccessible(true);
+                    method.invoke(document, queryParts.get(2));
+                }
+            } catch (IllegalAccessException | InvocationTargetException e) {
                 //ignore
             }
         }
+    }
+
+    public static List<String> splitWithDelimiter(String stringToSplit, String delimiter, String regex) {
+        String firstPart = stringToSplit.substring(0, stringToSplit.indexOf(delimiter));
+        String secondPart = stringToSplit.substring(stringToSplit.indexOf(delimiter) + 1, stringToSplit.length() - 1);
+        String[] splitted = firstPart.split(regex);
+        List<String> ret =  new ArrayList<>(Arrays.asList(splitted));
+        ret.add(secondPart);
+        return ret;
     }
 }

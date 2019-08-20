@@ -1,0 +1,1 @@
+db.user.createIndexes([ { "name": 1}, {"surname": 1} ],{ "collation": { "locale": "es", "normalization": true, "strength": 2 } } )

@@ -3,6 +3,7 @@ package com.mongodb.starter.database.versioning;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
@@ -12,87 +13,160 @@ import com.mongodb.starter.database.versioning.exception.UnknownCommand;
 import org.bson.BsonDocument;
 import org.bson.conversions.Bson;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 public class VersioningUtils {
 
-    public static List<?> queryAnalyze(String[] queryParts) throws UnknownCommand, UnknownCollectionOperation {
-        String operation = queryParts[2].substring(queryParts[2].indexOf("(") + 1, queryParts[2].length() - 1);
-        String collectionOperation = queryParts[2].substring(0, queryParts[2].indexOf("("));
-        switch (Defines.CollectionOperations.valueOf(collectionOperation)) {
-            /* Example
-            db.collection.createIndex(
-                { category: 1 },
-                { name: "category_fr", collation: { locale: "fr", strength: 2 } }
-            )
-            */
-            case createIndex:
-                int selector = countOccurences(operation, '{', 0);
+    public static List<?> queryAnalyze(Object[] objects) throws UnknownCommand, UnknownCollectionOperation {
+        String[] queryParts = Arrays.copyOf(objects, objects.length, String[].class);
+        String operation = queryParts[3].trim();
+        ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        switch (Defines.CollectionOperations.valueOf(queryParts[2])) {
+            case createIndex: {
+                int selector = countOccurences(operation, '{', '}');
                 DBObject dbObject;
-                IndexOptions indexOptions = new IndexOptions();
-                ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-                if(selector > 1) {
-                    String indexes = operation.substring(operation.indexOf("{"), operation.indexOf("}") + 1);
+                IndexOptions indexOptions;
+                if (selector > 1) {
+                    String indexes = subStringWithDelimiter(operation, '{', '}').trim();
                     dbObject = BasicDBObject.parse(indexes);
-                    String options = operation.substring(indexes.length() + 2).trim();
-
-                    Collation collation = null;
-                    Bson storageEngine = null;
-                    Bson partialFilterExpression = null;
+                    String options = operation.substring(indexes.length() + 1).trim();
 
                     ObjectNode objectNode;
                     try {
                         objectNode = (ObjectNode) objectMapper.readTree(options);
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         return new ArrayList<>();
                     }
 
-                    if(objectNode.get("collation") != null) {
-                        collation = collationParser(objectNode.get("collation"));
-                        objectNode.remove("collation");
-                    }
-                    if(objectNode.get("storageEngine") != null) {
-                        storageEngine = BsonDocument.parse(objectNode.get("storageEngine").toString());
-                        objectNode.remove("storageEngine");
-                    }
-                    if(objectNode.get("partialFilterExpression") != null) {
-                        partialFilterExpression = BsonDocument.parse(objectNode.get("partialFilterExpression").toString());
-                        objectNode.remove("partialFilterExpression");
-                    }
-
-                    indexOptions = objectMapper.convertValue(objectNode, IndexOptions.class);
-                    indexOptions.collation(collation);
-                    indexOptions.storageEngine(storageEngine);
-                    indexOptions.partialFilterExpression(partialFilterExpression);
-                }
-                else {
+                    indexOptions = getIndexOptions(objectMapper, objectNode);
+                } else {
                     dbObject = BasicDBObject.parse(operation);
+                    indexOptions = new IndexOptions();
                 }
-                IndexOptions finalIndexOptions = indexOptions;
-                return new ArrayList<>(){{
+                return new ArrayList<>() {{
                     add(queryParts[1]);
                     add(Defines.COL_CREATE_INDEX);
                     add(dbObject);
-                    add(finalIndexOptions);
+                    add(indexOptions);
+                    add(true);
                 }};
-            case createIndexes:
+            }
+            case createIndexes: {
+                List<IndexModel> indexModels = new ArrayList<>();
+                IndexOptions indexOptions = new IndexOptions();
+                int selector = countOccurences(operation, '{', '}');
+                if (selector > 1) {
+                    String indexes = subStringWithDelimiter(operation, '[', ']').trim();
+                    String options = operation.substring(indexes.length() + 1).trim();
 
-                return new ArrayList<>();
+                    ArrayNode arrayNode;
+                    ObjectNode objectNodeOptions;
+                    try {
+                        arrayNode = (ArrayNode) objectMapper.readTree(indexes);
+                        objectNodeOptions = (ObjectNode) objectMapper.readTree(options);
+                    } catch (Exception e) {
+                        return new ArrayList<>();
+                    }
+
+                    indexOptions = getIndexOptions(objectMapper, objectNodeOptions);
+
+                    Iterator<JsonNode> elements = arrayNode.elements();
+                    while(elements.hasNext()) {
+                        JsonNode element = elements.next();
+                        Bson dbObject = BasicDBObject.parse(element.toString());
+                        indexModels.add(new IndexModel(dbObject, indexOptions));
+                    }
+                } else {
+                    indexModels.add(new IndexModel(BasicDBObject.parse(operation)));
+                }
+                return new ArrayList<>() {{
+                    add(queryParts[1]);
+                    add(Defines.COL_CREATE_INDEXES);
+                    add(indexModels);
+                    add("null");
+                    add(false);
+                }};
+            }
             default:
                 throw new UnknownCollectionOperation("Unknown collection operation.");
         }
     }
 
-    private static int countOccurences(String someString, char searchedChar, int index) {
-        if (index >= someString.length()) {
-            return 0;
+    private static IndexOptions getIndexOptions(ObjectMapper objectMapper, ObjectNode objectNode) throws UnknownCommand {
+        IndexOptions indexOptions;
+        Collation collation = null;
+        Bson storageEngine = null;
+        Bson partialFilterExpression = null;
+
+        if (objectNode.get("collation") != null) {
+            collation = collationParser(objectNode.get("collation"));
+            objectNode.remove("collation");
         }
-        int count = someString.charAt(index) == searchedChar ? 1 : 0;
-        return count + countOccurences(someString, searchedChar, index + 1);
+        if (objectNode.get("storageEngine") != null) {
+            storageEngine = BsonDocument.parse(objectNode.get("storageEngine").toString());
+            objectNode.remove("storageEngine");
+        }
+        if (objectNode.get("partialFilterExpression") != null) {
+            partialFilterExpression = BsonDocument.parse(objectNode.get("partialFilterExpression").toString());
+            objectNode.remove("partialFilterExpression");
+        }
+
+        indexOptions = objectMapper.convertValue(objectNode, IndexOptions.class);
+        indexOptions.collation(collation);
+        indexOptions.storageEngine(storageEngine);
+        indexOptions.partialFilterExpression(partialFilterExpression);
+        return indexOptions;
+    }
+
+    private static String subStringWithDelimiter(String someString, char startChar, char endChar) {
+        int index = 0;
+        int endOccurrences = 0;
+        int startIndex = 0;
+        boolean found = false;
+        int endIndex = 0;
+        while(index < someString.length()) {
+            if(someString.charAt(index) == startChar && isFalse(found)) {
+                startIndex = index;
+                found = true;
+                endOccurrences++;
+            }
+            else if(someString.charAt(index) == startChar && found) {
+                endOccurrences++;
+            }
+            else if(someString.charAt(index) == endChar) {
+                endOccurrences--;
+                if(someString.charAt(index) == endChar && endOccurrences == 0 && found) {
+                    endIndex = index;
+                }
+            }
+            if(endIndex != 0) {
+                break;
+            }
+            index++;
+        }
+        return someString.substring(startIndex, endIndex + 1);
+    }
+
+    private static int countOccurences(String someString, char startChar, char endChar) {
+        int index = 0;
+        int occurences = 0;
+        int endOccurrences = 0;
+        while(index < someString.length()) {
+            if(someString.charAt(index) == startChar && endOccurrences == 0) {
+                occurences++;
+                endOccurrences++;
+            }
+            else if(someString.charAt(index) == startChar && endOccurrences != 0) {
+                endOccurrences++;
+            }
+            else if(someString.charAt(index) == endChar) {
+                endOccurrences--;
+            }
+            index++;
+        }
+        return occurences;
     }
 
     private static Collation collationParser(JsonNode jsonNode) throws UnknownCommand {
