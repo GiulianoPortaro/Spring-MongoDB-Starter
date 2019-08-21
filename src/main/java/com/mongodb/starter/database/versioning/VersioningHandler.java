@@ -6,6 +6,7 @@ import com.mongodb.starter.database.dto.Versioning;
 import com.mongodb.starter.database.repository.VersioningRepository;
 import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperation;
 import com.mongodb.starter.database.versioning.exception.UnknownCommand;
+import com.mongodb.starter.database.versioning.models.QueryModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -100,10 +101,10 @@ public class VersioningHandler {
 
     private void migrationBuild(File migrationFile, String subVersion) {
         String filePayload;
-        List<?> queryParts;
+        QueryModel queryModel;
         try {
-            filePayload = Files.readString(migrationFile.toPath());
-            queryParts = VersioningUtils.queryAnalyze(splitWithDelimiter(filePayload, "(", "\\.").toArray());
+            filePayload = Files.readString(migrationFile.toPath()).trim();
+            queryModel = VersioningUtils.queryAnalyze(splitWithDelimiter(filePayload, "(", "\\.").toArray());
         } catch (IOException e) {
             return;
         } catch (UnknownCommand unknownCommand) {
@@ -112,20 +113,21 @@ public class VersioningHandler {
             return;
         }
 
-        //mongoTemplate.getCollection("").createIndexes();
+        //mongoTemplate.getCollection("").deleteMany();
 
-        if(isFalse(queryParts.isEmpty())) {
-            Class<?>[] classes = queryParts.get(2).getClass().getInterfaces();
+        if(queryModel.isValidQuery()) {
+            Class<?>[] classes = queryModel.getQuery().getClass().getInterfaces();
 
             int interfaces = classes.length;
 
-            MongoCollection<org.bson.Document> document = mongoTemplate.getCollection(queryParts.get(0).toString());
+            MongoCollection<org.bson.Document> document = mongoTemplate.getCollection(queryModel.getCollectionName());
             try {
                 Method method;
-                if(queryParts.get(4).equals(true)) {
+                if(queryModel.isUseOptions()) {
                     while(true) {
                         try {
-                            method = document.getClass().getMethod(queryParts.get(1).toString(), classes[interfaces - 1], queryParts.get(3).getClass());
+                            method = document.getClass().getMethod(queryModel.getCollectionOperation(), classes[interfaces - 1],
+                                    queryModel.getOptions().getClass());
                             break;
                         } catch (NoSuchMethodException e) {
                             if(--interfaces == 0) {
@@ -134,13 +136,13 @@ public class VersioningHandler {
                         }
                     }
                     method.setAccessible(true);
-                    method.invoke(document, queryParts.get(2), queryParts.get(3));
+                    method.invoke(document, queryModel.getQuery(), queryModel.getOptions());
 
                 }
                 else {
                     while(true) {
                         try {
-                            method = document.getClass().getMethod(queryParts.get(1).toString(), classes[interfaces - 1]);
+                            method = document.getClass().getMethod(queryModel.getCollectionOperation(), classes[interfaces - 1]);
                             break;
                         } catch (NoSuchMethodException e) {
                             if(--interfaces == 0) {
@@ -149,7 +151,7 @@ public class VersioningHandler {
                         }
                     }
                     method.setAccessible(true);
-                    method.invoke(document, queryParts.get(2));
+                    method.invoke(document, queryModel.getQuery());
                 }
             } catch (IllegalAccessException | InvocationTargetException e) {
                 //ignore

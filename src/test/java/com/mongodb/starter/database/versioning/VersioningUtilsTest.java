@@ -1,8 +1,13 @@
 package com.mongodb.starter.database.versioning;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.starter.database.dto.Address;
+import com.mongodb.starter.database.dto.User;
 import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperation;
 import com.mongodb.starter.database.versioning.exception.UnknownCommand;
+import com.mongodb.starter.database.versioning.models.QueryModel;
 import org.bson.Document;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -18,7 +23,6 @@ import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.List;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -33,32 +37,60 @@ public class VersioningUtilsTest {
 
     @Test
     public void queryAnalyzeCreateIndex() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
-        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/createIndex").toURI()));
-        List<?> q = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
-        executeQuery(q);
+        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/createIndex").toURI())).trim();
+        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        executeQuery(queryModel);
         cleanUp();
     }
 
     @Test
     public void queryAnalyzeCreateIndexes() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
-        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/createIndexes").toURI()));
-        List<?> q = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
-        executeQuery(q);
+        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/createIndexes").toURI())).trim();
+        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        executeQuery(queryModel);
         cleanUp();
     }
 
-    private void executeQuery(List<?> query) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        Class<?>[] classes = query.get(2).getClass().getInterfaces();
+    @Test
+    public void queryAnalyzeDeleteOne() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
+        addRandomUsers(1);
+        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/deleteOne").toURI())).trim();
+        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        executeQuery(queryModel);
+        cleanUp();
+    }
 
-        MongoCollection<Document> document = mongoTemplate.getCollection(query.get(0).toString());
+    @Test
+    public void queryAnalyzeDeleteMany() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
+        addRandomUsers(2);
+        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/deleteMany").toURI())).trim();
+        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        executeQuery(queryModel);
+        cleanUp();
+    }
+
+    private void addRandomUsers(int number) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        for(int i = 0; i < number; i++) {
+            User user = new User("User", "Surname" + i, "Mail" + i, i,
+                    new Address("A" + i, "B" + i, i));
+            mongoTemplate.getCollection("user").insertOne(Document.parse(objectMapper.writeValueAsString(user)));
+        }
+    }
+
+    private void executeQuery(QueryModel query) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Class<?>[] classes = query.getQuery().getClass().getInterfaces();
+
+        MongoCollection<Document> document = mongoTemplate.getCollection(query.getCollectionName());
 
         int interfaces = classes.length;
 
         Method method;
-        if(query.get(4).equals(true)) {
+        if(query.isUseOptions()) {
             while(true) {
                 try {
-                    method = document.getClass().getMethod(query.get(1).toString(), classes[interfaces - 1], query.get(3).getClass());
+                    method = document.getClass().getMethod(query.getCollectionOperation(), classes[interfaces - 1],
+                            query.getOptions().getClass());
                     break;
                 } catch (NoSuchMethodException e) {
                     if(--interfaces == 0) {
@@ -67,12 +99,12 @@ public class VersioningUtilsTest {
                 }
             }
             method.setAccessible(true);
-            method.invoke(document, query.get(2), query.get(3));
+            method.invoke(document, query.getQuery(), query.getOptions());
         }
         else {
             while(true) {
                 try {
-                    method = document.getClass().getMethod(query.get(1).toString(), classes[interfaces - 1]);
+                    method = document.getClass().getMethod(query.getCollectionOperation(), classes[interfaces - 1]);
                     break;
                 } catch (NoSuchMethodException e) {
                     if(--interfaces == 0) {
@@ -81,7 +113,7 @@ public class VersioningUtilsTest {
                 }
             }
             method.setAccessible(true);
-            method.invoke(document, query.get(2));
+            method.invoke(document, query.getQuery());
         }
     }
 }

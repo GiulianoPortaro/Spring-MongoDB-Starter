@@ -1,0 +1,1 @@
+db.user.deleteOne({ "name": "User"}, { "collation": { "locale": "en", "strength": 1 } } )

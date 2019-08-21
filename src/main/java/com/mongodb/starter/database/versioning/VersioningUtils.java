@@ -6,10 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
 import com.mongodb.client.model.*;
 import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperation;
 import com.mongodb.starter.database.versioning.exception.UnknownCommand;
+import com.mongodb.starter.database.versioning.models.QueryModel;
 import org.bson.BsonDocument;
 import org.bson.conversions.Bson;
 
@@ -19,79 +19,85 @@ import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 public class VersioningUtils {
 
-    public static List<?> queryAnalyze(Object[] objects) throws UnknownCommand, UnknownCollectionOperation {
+    public static QueryModel queryAnalyze(Object[] objects) throws UnknownCommand, UnknownCollectionOperation {
         String[] queryParts = Arrays.copyOf(objects, objects.length, String[].class);
         String operation = queryParts[3].trim();
         ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        QueryModel queryModel = new QueryModel(queryParts[1], queryParts[2]);
+        int selector = countOccurences(operation, '{', '}');
         switch (Defines.CollectionOperations.valueOf(queryParts[2])) {
             case createIndex: {
-                int selector = countOccurences(operation, '{', '}');
-                DBObject dbObject;
-                IndexOptions indexOptions;
-                if (selector > 1) {
-                    String indexes = subStringWithDelimiter(operation, '{', '}').trim();
-                    dbObject = BasicDBObject.parse(indexes);
-                    String options = operation.substring(indexes.length() + 1).trim();
+                String indexes = subStringWithDelimiter(operation, '{', '}').trim();
+                String options = operation.substring(indexes.length() + 1).trim();
 
+                queryModel.setQuery(BasicDBObject.parse(indexes));
+                if (selector > 1) {
                     ObjectNode objectNode;
                     try {
                         objectNode = (ObjectNode) objectMapper.readTree(options);
                     } catch (Exception e) {
-                        return new ArrayList<>();
+                        return new QueryModel(false);
                     }
-
-                    indexOptions = getIndexOptions(objectMapper, objectNode);
-                } else {
-                    dbObject = BasicDBObject.parse(operation);
-                    indexOptions = new IndexOptions();
+                    queryModel.setOptions(getIndexOptions(objectMapper, objectNode));
                 }
-                return new ArrayList<>() {{
-                    add(queryParts[1]);
-                    add(Defines.COL_CREATE_INDEX);
-                    add(dbObject);
-                    add(indexOptions);
-                    add(true);
-                }};
+                break;
             }
             case createIndexes: {
                 List<IndexModel> indexModels = new ArrayList<>();
-                IndexOptions indexOptions = new IndexOptions();
-                int selector = countOccurences(operation, '{', '}');
-                if (selector > 1) {
-                    String indexes = subStringWithDelimiter(operation, '[', ']').trim();
-                    String options = operation.substring(indexes.length() + 1).trim();
+                String indexes = subStringWithDelimiter(operation, '[', ']').trim();
+                String options = operation.substring(indexes.length() + 1).trim();
 
-                    ArrayNode arrayNode;
-                    ObjectNode objectNodeOptions;
-                    try {
-                        arrayNode = (ArrayNode) objectMapper.readTree(indexes);
-                        objectNodeOptions = (ObjectNode) objectMapper.readTree(options);
-                    } catch (Exception e) {
-                        return new ArrayList<>();
-                    }
+                ArrayNode arrayNode;
+                ObjectNode objectNodeOptions;
+                try {
+                    arrayNode = (ArrayNode) objectMapper.readTree(indexes);
+                    objectNodeOptions = (ObjectNode) objectMapper.readTree(options);
+                } catch (Exception e) {
+                    return new QueryModel(false);
+                }
 
-                    indexOptions = getIndexOptions(objectMapper, objectNodeOptions);
+                IndexOptions indexOptions = getIndexOptions(objectMapper, objectNodeOptions);
 
-                    Iterator<JsonNode> elements = arrayNode.elements();
-                    while(elements.hasNext()) {
-                        JsonNode element = elements.next();
-                        Bson dbObject = BasicDBObject.parse(element.toString());
+                Iterator<JsonNode> elements = arrayNode.elements();
+                while(elements.hasNext()) {
+                    Bson dbObject = BasicDBObject.parse(elements.next().toString());
+                    if (selector > 1) {
                         indexModels.add(new IndexModel(dbObject, indexOptions));
                     }
-                } else {
-                    indexModels.add(new IndexModel(BasicDBObject.parse(operation)));
+                    else {
+                        indexModels.add(new IndexModel(dbObject));
+                    }
                 }
-                return new ArrayList<>() {{
-                    add(queryParts[1]);
-                    add(Defines.COL_CREATE_INDEXES);
-                    add(indexModels);
-                    add("null");
-                    add(false);
-                }};
+                queryModel.setQuery(indexModels);
+                break;
+            }
+            case deleteOne:
+            case deleteMany: {
+                String indexes = subStringWithDelimiter(operation, '{', '}').trim();
+                String options = operation.substring(indexes.length() + 1).trim();
+
+                queryModel.setQuery(BasicDBObject.parse(indexes));
+
+                if (selector > 1) {
+                    JsonNode objectNode;
+                    try {
+                        objectNode = objectMapper.readTree(options);
+                    } catch (Exception e) {
+                        return new QueryModel(false);
+                    }
+
+                    if (objectNode.get("collation") != null) {
+                        DeleteOptions deleteOptions;
+                        deleteOptions = new DeleteOptions().collation(collationParser(objectNode.get("collation")));
+                        queryModel.setOptions(deleteOptions);
+                    }
+                }
+                break;
             }
             default:
                 throw new UnknownCollectionOperation("Unknown collection operation.");
         }
+        return queryModel;
     }
 
     private static IndexOptions getIndexOptions(ObjectMapper objectMapper, ObjectNode objectNode) throws UnknownCommand {
@@ -174,7 +180,14 @@ public class VersioningUtils {
         Collation.Builder builder = Collation.builder();
         while(keyPairs.hasNext()) {
             Map.Entry<String, JsonNode> nestedNode = keyPairs.next();
-            switch(Defines.CollationField.valueOf(nestedNode.getKey())) {
+            Defines.CollationField collationField;
+            try {
+                collationField = Defines.CollationField.valueOf(nestedNode.getKey());
+            }
+            catch (Exception e) {
+                throw new UnknownCommand("Unknown field for Collation type.");
+            }
+            switch(collationField) {
                 case locale:
                     builder.locale(nestedNode.getValue().textValue());
                     break;

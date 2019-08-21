@@ -1,0 +1,1 @@
+db.user.deleteMany({ "name": "User"}, { "collation": { "locale": "en", "strength": 1 } } )
