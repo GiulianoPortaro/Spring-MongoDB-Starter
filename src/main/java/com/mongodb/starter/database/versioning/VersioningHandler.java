@@ -1,5 +1,6 @@
 package com.mongodb.starter.database.versioning;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.starter.StarterConfiguration;
 import com.mongodb.starter.database.dto.Versioning;
@@ -32,12 +33,15 @@ public class VersioningHandler {
     private MongoTemplate mongoTemplate;
     private StarterConfiguration starterConfiguration;
     private VersioningRepository versioningRepository;
+    private ObjectMapper objectMapper;
 
     @Autowired
-    public VersioningHandler(MongoTemplate mongoTemplate, StarterConfiguration starterConfiguration, VersioningRepository versioningRepository) {
+    public VersioningHandler(MongoTemplate mongoTemplate, StarterConfiguration starterConfiguration,
+                             VersioningRepository versioningRepository, ObjectMapper objectMapper) {
         this.mongoTemplate = mongoTemplate;
         this.starterConfiguration = starterConfiguration;
         this.versioningRepository = versioningRepository;
+        this.objectMapper = objectMapper;
     }
 
     public void databaseBuild() {
@@ -104,7 +108,8 @@ public class VersioningHandler {
         QueryModel queryModel;
         try {
             filePayload = Files.readString(migrationFile.toPath()).trim();
-            queryModel = VersioningUtils.queryAnalyze(splitWithDelimiter(filePayload, "(", "\\.").toArray());
+            queryModel = VersioningUtils.queryAnalyze(splitWithDelimiter(filePayload, "(", "\\.").toArray(),
+                    objectMapper);
         } catch (IOException e) {
             return;
         } catch (UnknownCommand unknownCommand) {
@@ -113,53 +118,67 @@ public class VersioningHandler {
             return;
         }
 
-        //mongoTemplate.getCollection("").deleteMany();
+        //mongoTemplate.getCollection("").dropIndex();
 
-        if(queryModel.isValidQuery()) {
-            Class<?>[] classes = queryModel.getQuery().getClass().getInterfaces();
+        MongoCollection<org.bson.Document> document = mongoTemplate.getCollection(queryModel.getCollectionName());
+        Method method;
 
-            int interfaces = classes.length;
-
-            MongoCollection<org.bson.Document> document = mongoTemplate.getCollection(queryModel.getCollectionName());
+        if(isFalse(queryModel.isUseQuery())) {
             try {
-                Method method;
-                if(queryModel.isUseOptions()) {
-                    while(true) {
-                        try {
-                            method = document.getClass().getMethod(queryModel.getCollectionOperation(), classes[interfaces - 1],
-                                    queryModel.getOptions().getClass());
-                            break;
-                        } catch (NoSuchMethodException e) {
-                            if(--interfaces == 0) {
-                                return;
-                            }
-                        }
-                    }
-                    method.setAccessible(true);
-                    method.invoke(document, queryModel.getQuery(), queryModel.getOptions());
-
-                }
-                else {
-                    while(true) {
-                        try {
-                            method = document.getClass().getMethod(queryModel.getCollectionOperation(), classes[interfaces - 1]);
-                            break;
-                        } catch (NoSuchMethodException e) {
-                            if(--interfaces == 0) {
-                                return;
-                            }
-                        }
-                    }
-                    method.setAccessible(true);
-                    method.invoke(document, queryModel.getQuery());
-                }
-            } catch (IllegalAccessException | InvocationTargetException e) {
+                method = document.getClass().getMethod(queryModel.getCollectionOperation());
+                method.setAccessible(true);
+                method.invoke(document);
+            }
+            catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
                 //ignore
+            }
+        }
+        else {
+            if(queryModel.isValidQuery()) {
+                List<Class<?>> classes = new ArrayList<>(Arrays.asList(queryModel.getQuery().getClass().getInterfaces()));
+                classes.add(queryModel.getQuery().getClass());
+
+                int interfaces = classes.size();
+
+                try {
+                    if (queryModel.isUseOptions()) {
+                        while (true) {
+                            try {
+                                method = document.getClass().getMethod(queryModel.getCollectionOperation(), classes.get(interfaces - 1),
+                                        queryModel.getOptions().getClass());
+                                break;
+                            } catch (NoSuchMethodException e) {
+                                if (--interfaces == 0) {
+                                    return;
+                                }
+                            }
+                        }
+                        method.setAccessible(true);
+                        method.invoke(document, queryModel.getQuery(), queryModel.getOptions());
+
+                    } else {
+                        while (true) {
+                            try {
+                                method = document.getClass().getMethod(queryModel.getCollectionOperation(), classes.get(interfaces - 1));
+                                break;
+                            } catch (NoSuchMethodException e) {
+                                if (--interfaces == 0) {
+                                    return;
+                                }
+                            }
+                        }
+                        method.setAccessible(true);
+                        method.invoke(document, queryModel.getQuery());
+                    }
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    //ignore
+                }
             }
         }
     }
 
     public static List<String> splitWithDelimiter(String stringToSplit, String delimiter, String regex) {
+        stringToSplit = stringToSplit.replace(";", "").trim();
         String firstPart = stringToSplit.substring(0, stringToSplit.indexOf(delimiter));
         String secondPart = stringToSplit.substring(stringToSplit.indexOf(delimiter) + 1, stringToSplit.length() - 1);
         String[] splitted = firstPart.split(regex);

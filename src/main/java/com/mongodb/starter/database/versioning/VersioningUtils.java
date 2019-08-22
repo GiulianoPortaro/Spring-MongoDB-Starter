@@ -1,6 +1,5 @@
 package com.mongodb.starter.database.versioning;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -19,16 +18,15 @@ import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 public class VersioningUtils {
 
-    public static QueryModel queryAnalyze(Object[] objects) throws UnknownCommand, UnknownCollectionOperation {
+    public static QueryModel queryAnalyze(Object[] objects, ObjectMapper objectMapper) throws UnknownCommand, UnknownCollectionOperation {
         String[] queryParts = Arrays.copyOf(objects, objects.length, String[].class);
         String operation = queryParts[3].trim();
-        ObjectMapper objectMapper = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         QueryModel queryModel = new QueryModel(queryParts[1], queryParts[2]);
         int selector = countOccurences(operation, '{', '}');
         switch (Defines.CollectionOperations.valueOf(queryParts[2])) {
             case createIndex: {
-                String indexes = subStringWithDelimiter(operation, '{', '}').trim();
-                String options = operation.substring(indexes.length() + 1).trim();
+                String indexes = subStringWithDelimiter(operation, '{', '}');
+                String options = operation.substring(indexes.length() + 1);
 
                 queryModel.setQuery(BasicDBObject.parse(indexes));
                 if (selector > 1) {
@@ -44,8 +42,8 @@ public class VersioningUtils {
             }
             case createIndexes: {
                 List<IndexModel> indexModels = new ArrayList<>();
-                String indexes = subStringWithDelimiter(operation, '[', ']').trim();
-                String options = operation.substring(indexes.length() + 1).trim();
+                String indexes = subStringWithDelimiter(operation, '[', ']');
+                String options = operation.substring(indexes.length() + 1);
 
                 ArrayNode arrayNode;
                 ObjectNode objectNodeOptions;
@@ -73,8 +71,8 @@ public class VersioningUtils {
             }
             case deleteOne:
             case deleteMany: {
-                String indexes = subStringWithDelimiter(operation, '{', '}').trim();
-                String options = operation.substring(indexes.length() + 1).trim();
+                String indexes = subStringWithDelimiter(operation, '{', '}');
+                String options = operation.substring(indexes.length() + 1);
 
                 queryModel.setQuery(BasicDBObject.parse(indexes));
 
@@ -94,6 +92,17 @@ public class VersioningUtils {
                 }
                 break;
             }
+            case drop:
+                break;
+            case dropIndex:
+                if(selector == 0) {
+                    queryModel.setQuery(operation.replace("\"", ""));
+                }
+                else {
+                    String indexes = subStringWithDelimiter(operation, '{', '}');
+                    queryModel.setQuery(BasicDBObject.parse(indexes));
+                }
+                break;
             default:
                 throw new UnknownCollectionOperation("Unknown collection operation.");
         }

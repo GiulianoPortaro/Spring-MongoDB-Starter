@@ -12,6 +12,7 @@ public class QueryModel {
     private Object options;
     private boolean isValidQuery = true;
     private boolean useOptions = false;
+    private boolean useQuery = false;
 
     public QueryModel(boolean isValidQuery) {
         this.isValidQuery = isValidQuery;
@@ -20,26 +21,15 @@ public class QueryModel {
     public QueryModel(String collectionName, String collectionOperation) {
         this.collectionName = collectionName;
         this.collectionOperation = collectionOperation;
-        this.useOptions = false;
-    }
-
-    public QueryModel(String collectionName, String collectionOperation, Class<?> query) {
-        this.collectionName = collectionName;
-        this.collectionOperation = collectionOperation;
-        this.query = query;
-        this.useOptions = false;
-    }
-
-    public QueryModel(String collectionName, String collectionOperation, Class<?> query, Class<?> options) {
-        this.collectionName = collectionName;
-        this.collectionOperation = collectionOperation;
-        this.query = query;
-        this.options = options;
-        this.useOptions = true;
     }
 
     public void setOptions(Object options) {
         this.options = options;
         this.useOptions = true;
+    }
+
+    public void setQuery(Object query) {
+        this.query = query;
+        this.useQuery = true;
     }
 }

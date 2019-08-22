@@ -23,6 +23,11 @@ import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -30,6 +35,7 @@ import java.nio.file.Paths;
 public class VersioningUtilsTest {
 
     @Autowired MongoTemplate mongoTemplate;
+    @Autowired ObjectMapper objectMapper;
 
     private void cleanUp() {
         mongoTemplate.getDb().drop();
@@ -38,7 +44,8 @@ public class VersioningUtilsTest {
     @Test
     public void queryAnalyzeCreateIndex() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
         String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/createIndex").toURI())).trim();
-        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        QueryModel queryModel = VersioningUtils.queryAnalyze(
+                VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray(), objectMapper);
         executeQuery(queryModel);
         cleanUp();
     }
@@ -46,7 +53,8 @@ public class VersioningUtilsTest {
     @Test
     public void queryAnalyzeCreateIndexes() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
         String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/createIndexes").toURI())).trim();
-        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        QueryModel queryModel = VersioningUtils.queryAnalyze(
+                VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray(), objectMapper);
         executeQuery(queryModel);
         cleanUp();
     }
@@ -55,7 +63,8 @@ public class VersioningUtilsTest {
     public void queryAnalyzeDeleteOne() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
         addRandomUsers(1);
         String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/deleteOne").toURI())).trim();
-        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        QueryModel queryModel = VersioningUtils.queryAnalyze(
+                VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray(), objectMapper);
         executeQuery(queryModel);
         cleanUp();
     }
@@ -64,7 +73,26 @@ public class VersioningUtilsTest {
     public void queryAnalyzeDeleteMany() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
         addRandomUsers(2);
         String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/deleteMany").toURI())).trim();
-        QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray());
+        QueryModel queryModel = VersioningUtils.queryAnalyze(
+                VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray(), objectMapper);
+        executeQuery(queryModel);
+        cleanUp();
+    }
+
+    @Test
+    public void queryAnalyzeDrop() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
+        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/drop").toURI())).trim();
+        QueryModel queryModel = VersioningUtils.queryAnalyze(
+                VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray(), objectMapper);
+        executeQuery(queryModel);
+        cleanUp();
+    }
+
+    @Test
+    public void queryAnalyzeDropIndex() throws UnknownCommand, UnknownCollectionOperation, NoSuchMethodException, IllegalAccessException, InvocationTargetException, URISyntaxException, IOException {
+        String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/dropIndex").toURI())).trim();
+        QueryModel queryModel = VersioningUtils.queryAnalyze(
+                VersioningHandler.splitWithDelimiter(query, "(", "\\.").toArray(), objectMapper);
         executeQuery(queryModel);
         cleanUp();
     }
@@ -79,41 +107,49 @@ public class VersioningUtilsTest {
     }
 
     private void executeQuery(QueryModel query) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
-        Class<?>[] classes = query.getQuery().getClass().getInterfaces();
-
         MongoCollection<Document> document = mongoTemplate.getCollection(query.getCollectionName());
-
-        int interfaces = classes.length;
-
         Method method;
-        if(query.isUseOptions()) {
-            while(true) {
-                try {
-                    method = document.getClass().getMethod(query.getCollectionOperation(), classes[interfaces - 1],
-                            query.getOptions().getClass());
-                    break;
-                } catch (NoSuchMethodException e) {
-                    if(--interfaces == 0) {
-                        throw e;
-                    }
-                }
-            }
+
+        if(isFalse(query.isUseQuery())) {
+            method = document.getClass().getMethod(query.getCollectionOperation());
             method.setAccessible(true);
-            method.invoke(document, query.getQuery(), query.getOptions());
+            method.invoke(document);
         }
         else {
-            while(true) {
-                try {
-                    method = document.getClass().getMethod(query.getCollectionOperation(), classes[interfaces - 1]);
-                    break;
-                } catch (NoSuchMethodException e) {
-                    if(--interfaces == 0) {
-                        throw e;
+            List<Class<?>> classes = new ArrayList<>(Arrays.asList(query.getQuery().getClass().getInterfaces()));
+            classes.add(query.getQuery().getClass());
+
+            int interfaces = classes.size();
+
+            if(query.isUseOptions()) {
+                while(true) {
+                    try {
+                        method = document.getClass().getMethod(query.getCollectionOperation(), classes.get(interfaces - 1),
+                                query.getOptions().getClass());
+                        break;
+                    } catch (NoSuchMethodException e) {
+                        if(--interfaces == 0) {
+                            throw e;
+                        }
                     }
                 }
+                method.setAccessible(true);
+                method.invoke(document, query.getQuery(), query.getOptions());
             }
-            method.setAccessible(true);
-            method.invoke(document, query.getQuery());
+            else {
+                while(true) {
+                    try {
+                        method = document.getClass().getMethod(query.getCollectionOperation(), classes.get(interfaces - 1));
+                        break;
+                    } catch (NoSuchMethodException e) {
+                        if(--interfaces == 0) {
+                            throw e;
+                        }
+                    }
+                }
+                method.setAccessible(true);
+                method.invoke(document, query.getQuery());
+            }
         }
     }
 }

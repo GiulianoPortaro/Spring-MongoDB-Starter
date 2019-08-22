@@ -1,0 +1,1 @@
+db.user.dropIndex({ "mail": 1 })
