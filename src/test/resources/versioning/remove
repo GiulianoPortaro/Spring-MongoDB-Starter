@@ -1,0 +1,1 @@
+db.user.remove({ "name" : "Alex" }, { "collation": { "locale": "es", "normalization": true, "strength": 2 }, "justOne": true })

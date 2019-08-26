@@ -3,10 +3,10 @@ package com.mongodb.starter.database.versioning;
 public class Defines {
 
     public final static String SUB_VERSION_DELIMITER = "_";
-
-    public final static String DB_GET_COLLECTION = "getCollection";
+    public final static String VERSION_REGEX = "(?<=^|)\\d+(\\.\\d+)?(?=$|)";
 
     public enum CollectionOperations {
+        createCollection,
         createIndex,
         createIndexes,
         deleteOne,
@@ -14,7 +14,6 @@ public class Defines {
         drop,
         dropIndex,
         dropIndexes,
-        insert,
         insertOne,
         insertMany,
         remove,
@@ -35,5 +34,12 @@ public class Defines {
         maxVariable,
         normalization,
         backwards
+    }
+
+    public enum UpdateOptionsField {
+        upsert,
+        collation,
+        arrayFilters,
+        multi
     }
 }

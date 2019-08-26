@@ -7,13 +7,14 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 @Document(collection = "user")
 @Getter
 @Setter
 @NoArgsConstructor
-public class User extends Audit{
+public class User extends Audit implements Serializable {
     @Id
     private String id;
 

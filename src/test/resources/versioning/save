@@ -1,0 +1,1 @@
+db.user.save({"name": "Alessandro","surname": "Verdi","age": 31,"mail": "alessandro.verdi@mail.com","address": {"address": "Piazza XX Settembre","province": "CT","number": 4}})

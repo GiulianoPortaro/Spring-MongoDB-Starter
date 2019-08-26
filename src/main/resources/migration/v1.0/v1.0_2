@@ -1,0 +1,2 @@
+db.createCollection("token");
+db.token.insertOne({"value": "12345678", "createAt": "1566797900000"});

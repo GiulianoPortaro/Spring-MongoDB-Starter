@@ -11,4 +11,5 @@ public class StarterConfiguration {
 
     private String basePath;
     private String basePackage;
+    private String databaseName;
 }

@@ -6,12 +6,13 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.io.Serializable;
 import java.time.Instant;
 
 @Document(collection = "versioning")
 @Data
 @NoArgsConstructor
-public class Versioning {
+public class Versioning implements Serializable {
     private String version;
     @CreatedDate
     @JsonIgnore

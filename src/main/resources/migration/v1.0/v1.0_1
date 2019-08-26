@@ -1,0 +1,3 @@
+db.user.insertOne({"name": "Antonio","surname": "Rossi","age": 41,"mail": "antonio.rossi@mail.com","address": {"address": "Via del Portico", "province": "TO", "number": 43}});
+db.user.insertOne({"name": "Paolo","surname": "Bianchi","age": 21,"mail": "paolo.bianchi@mail.com","address": {"address": "Via del Fuoco","province": "CT","number": 123}});
+db.user.insertOne({"name": "Franco Paolo","surname": "Bianchi","age": 21,"mail": "francopaolo.bianchi@mail.com","address": {"address": "Via del Fuoco","province": "CT","number": 123}});

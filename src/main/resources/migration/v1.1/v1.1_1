@@ -1,0 +1,1 @@
+db.token.createIndex( { "value": 1 }, { "name": "value_in", "collation": { "normalization": true, "locale": "es", "strength": 2 } } )

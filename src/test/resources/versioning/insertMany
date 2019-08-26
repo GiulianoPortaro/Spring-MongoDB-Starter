@@ -1,0 +1,1 @@
+db.user.insertMany([{"name": "Alfio","surname": "Roma","age": 33,"mail": "alfio.roma@mail.com","address": {"address": "Via del Ghiaccio","province": "VE","number": 542}}, {"name": "Maria","surname": "Roma","age": 21,"mail": "maria.roma@mail.com","address": {"address": "Via del Ghiaccio","province": "VE","number": 542}}])

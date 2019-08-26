@@ -1,0 +1,13 @@
+db.user.updateMany({"mail": "alessandro.verdi@mail.com"},
+    { $set: { "name": "Alessandro","surname": "Verdi","age": 31,"mail": "alessandro.verdi@mail.com","address": {"address": "Piazza XX Settembre","province": "CT","number": 4}}},
+    {"upsert": true, "collation": { "normalization": true, "locale": "es", "strength": 2 } }
+)
+db.user.updateMany(
+    {"mail": "alessandro.verdi@mail.com"},
+    { $set: { "name": "Alessandro","surname": "Verdi","age": 31,"mail": "alessandro.verdi@mail.com","address": {"address": "Piazza XX Settembre","province": "CT","number": 4}}},
+    {"upsert": false, "collation": { "normalization": true, "locale": "es", "strength": 2 } }
+)
+db.user.updateMany(
+    {"mail": "alessandro.verdi@mail.com"},
+    { $set: { "name": "Alessandro","surname": "Verdi","age": 31,"mail": "alessandro.verdi@mail.com","address": {"address": "Piazza XX Settembre","province": "CT","number": 4}}}
+)
