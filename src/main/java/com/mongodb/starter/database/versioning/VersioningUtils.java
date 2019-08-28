@@ -10,8 +10,8 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.model.*;
 import com.mongodb.starter.StarterConfiguration;
-import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperation;
-import com.mongodb.starter.database.versioning.exception.UnknownCommand;
+import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperationException;
+import com.mongodb.starter.database.versioning.exception.UnknownCommandException;
 import com.mongodb.starter.database.versioning.models.Param;
 import com.mongodb.starter.database.versioning.models.QueryModel;
 import org.apache.commons.lang3.StringUtils;
@@ -27,7 +27,7 @@ import static org.apache.commons.lang3.BooleanUtils.isFalse;
 
 public class VersioningUtils {
 
-    public static QueryModel queryAnalyze(Object[] objects, ObjectMapper objectMapper, StarterConfiguration starterConfiguration) throws UnknownCommand, UnknownCollectionOperation {
+    public static QueryModel queryAnalyze(Object[] objects, ObjectMapper objectMapper, StarterConfiguration starterConfiguration) throws UnknownCommandException, UnknownCollectionOperationException {
         String[] queryParts = Arrays.copyOf(objects, objects.length, String[].class);
         String operation = "";
         QueryModel queryModel;
@@ -168,10 +168,10 @@ public class VersioningUtils {
                     break;
                 }
                 default:
-                    throw new UnknownCollectionOperation("Unknown collection operation.");
+                    throw new UnknownCollectionOperationException("Unknown collection operation.");
             }
         }
-        catch (UnknownCommand | UnknownCollectionOperation u) {
+        catch (UnknownCommandException | UnknownCollectionOperationException u) {
             throw u;
         }
         catch (Exception e) {
@@ -180,7 +180,7 @@ public class VersioningUtils {
         return queryModel;
     }
 
-    private static IndexOptions getIndexOptions(ObjectMapper objectMapper, ObjectNode objectNode) throws UnknownCommand {
+    private static IndexOptions getIndexOptions(ObjectMapper objectMapper, ObjectNode objectNode) throws UnknownCommandException {
         IndexOptions indexOptions;
         Collation collation = null;
         Bson storageEngine = null;
@@ -255,7 +255,7 @@ public class VersioningUtils {
         return occurences;
     }
 
-    private static UpdateOptions updateOptionsParser(JsonNode jsonNode, QueryModel queryModel) throws UnknownCommand {
+    private static UpdateOptions updateOptionsParser(JsonNode jsonNode, QueryModel queryModel) throws UnknownCommandException {
         ObjectMapper objectMapper = new ObjectMapper();
         UpdateOptions updateOptions = new UpdateOptions();
         Iterator<Map.Entry<String, JsonNode>> keyPairs = jsonNode.fields();
@@ -266,7 +266,7 @@ public class VersioningUtils {
             try {
                 updateOptionsField = Defines.UpdateOptionsField.valueOf(nestedNode.getKey());
             } catch (Exception e) {
-                throw new UnknownCommand("Unknown field [" + nestedNode.getKey() + "] for UpdateOperations type.");
+                throw new UnknownCommandException("Unknown field [" + nestedNode.getKey() + "] for UpdateOperations type.");
             }
             switch (updateOptionsField) {
                 case upsert:
@@ -287,13 +287,13 @@ public class VersioningUtils {
                     }
                     break;
                 default:
-                    throw new UnknownCommand("Unknown field [" + updateOptionsField.name() + "] for UpdateOperations type.");
+                    throw new UnknownCommandException("Unknown field [" + updateOptionsField.name() + "] for UpdateOperations type.");
             }
         }
         return updateOptions;
     }
 
-    private static Collation collationParser(@NotNull JsonNode jsonNode) throws UnknownCommand {
+    private static Collation collationParser(@NotNull JsonNode jsonNode) throws UnknownCommandException {
         Iterator<Map.Entry<String, JsonNode>> keyPairs = jsonNode.fields();
         Collation.Builder builder = Collation.builder();
         while(keyPairs.hasNext()) {
@@ -303,7 +303,7 @@ public class VersioningUtils {
                 collationField = Defines.CollationField.valueOf(nestedNode.getKey());
             }
             catch (Exception e) {
-                throw new UnknownCommand("Unknown field [" + nestedNode.getKey() + "] for Collation type.");
+                throw new UnknownCommandException("Unknown field [" + nestedNode.getKey() + "] for Collation type.");
             }
             switch(collationField) {
                 case locale:
@@ -334,7 +334,7 @@ public class VersioningUtils {
                     builder.numericOrdering(nestedNode.getValue().booleanValue());
                     break;
                 default:
-                    throw new UnknownCommand("Unknown field [" + collationField.name() + "] for Collation type.");
+                    throw new UnknownCommandException("Unknown field [" + collationField.name() + "] for Collation type.");
             }
         }
         return builder.build();

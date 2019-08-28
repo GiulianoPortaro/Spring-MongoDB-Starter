@@ -5,8 +5,8 @@ import com.mongodb.starter.StarterConfiguration;
 import com.mongodb.starter.database.dto.Versioning;
 import com.mongodb.starter.database.repository.VersioningRepository;
 import com.mongodb.starter.database.versioning.exception.InvalidParameterException;
-import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperation;
-import com.mongodb.starter.database.versioning.exception.UnknownCommand;
+import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperationException;
+import com.mongodb.starter.database.versioning.exception.UnknownCommandException;
 import com.mongodb.starter.database.versioning.models.Param;
 import com.mongodb.starter.database.versioning.models.QueryModel;
 import lombok.extern.log4j.Log4j;
@@ -150,25 +150,39 @@ public class VersioningHandler {
     }
 
     private void migrationBuild(@NotNull File migrationFile) {
+        int totalQuery = 0;
+        int successQuery = 0;
+        String filePayload;
         try {
-            String filePayload = Files.readString(migrationFile.toPath()).trim();
-            if(StringUtils.isBlank(filePayload)) {
+             filePayload = Files.readString(migrationFile.toPath()).trim();
+            if (StringUtils.isBlank(filePayload)) {
                 log.info(MessageFormat.format("Read empty file[{0}]", migrationFile.getName()));
                 return;
             }
-            while(filePayload.contains(")")) {
+        }
+        catch (IOException e) {
+            log.error(MessageFormat.format("Parse error: file[{}], error[{0}]", migrationFile.getName(), e.getMessage()));
+            return;
+        }
+
+        while(filePayload.contains(")")) {
+            try {
                 QueryModel queryModel = VersioningUtils.queryAnalyze(VersioningUtils.splitWithDelimiter(
                         filePayload, "(", ")", "\\.").toArray(), objectMapper, starterConfiguration
                 );
                 executeQuery(queryModel);
                 filePayload = filePayload.substring(filePayload.indexOf(")") + 1).trim();
+                totalQuery++;
+                successQuery++;
+
+            } catch (UnknownCommandException | UnknownCollectionOperationException u) {
+                log.error(MessageFormat.format("Error during analyze file: type[{0}] file[{1}], error[{2}]", u.getClass(),
+                        migrationFile.getName(), u.getMessage()));
+                totalQuery++;
             }
-        } catch (IOException e) {
-            log.error(MessageFormat.format("Parse error: file[{}], error[{0}]", migrationFile.getName(), e.getMessage()));
-        } catch (UnknownCommand | UnknownCollectionOperation u) {
-            log.error(MessageFormat.format("Error during analyze file: type[{0}] file[{1}], error[{2}]", u.getClass(),
-                    migrationFile.getName(), u.getMessage()));
         }
+        versioningRepository.insert(new Versioning(migrationFile.getName().split("_")[0], migrationFile.getName(),
+                "", (successQuery / totalQuery) * 100 + "%"));
     }
 
     public void executeQuery(@NotNull QueryModel queryModel) {
