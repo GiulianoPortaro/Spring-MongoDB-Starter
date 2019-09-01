@@ -28,14 +28,14 @@ The <i>StarterConfiguration</i> class guide the developers to implement a config
 The <i>VersioningHandler</i> class rappresent with the principal funtionality class inside the project; it allow to use the migration operations. The class convert the MongoDB queries (with the shell syntax) inserted inside the following directories present in resources folder:
 1. <b>dump</b>: This folder contains the dump files that must have the name of the collection on which the restore must be made.
 2. <b>migration</b>: This folder contains the migration folders that must have a like name a: "<i>vX.Y</i>" where:
-        - <i>v</i> is the prefix.
-        - <i>X</i> is the version that must be an integer.
-        - <i>Y</i> is the subversion that must be an integer.
-  Inside the folder we can put different files that must have a name like: "<i>vX.Y_Z</i>" where:
-        - <i>v</i> is the prefix.
-        - <i>X</i> is the version that must be an integer.
-        - <i>T</i> is the subversion that must be an integer.
-        - <i>Z</i> is a (integer) incremental number that rappresent the version number of the file.
+    a. v is the prefix.
+    b. X is the version that must be an integer.
+    c. <i>Y</i> is the subversion that must be an integer.
+Inside the folder we can put different files that must have a name like: "<i>vX.Y_Z</i>" where:
+    - <i>v</i> is the prefix.
+    - <i>X</i> is the version that must be an integer.
+    - <i>T</i> is the subversion that must be an integer.
+    - <i>Z</i> is a (integer) incremental number that rappresent the version number of the file.
 
 The queries supported by the class follow:
 1. <b>createCollection</b>.
