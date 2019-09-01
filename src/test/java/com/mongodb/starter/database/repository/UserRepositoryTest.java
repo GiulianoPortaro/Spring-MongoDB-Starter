@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.starter.database.dto.Address;
 import com.mongodb.starter.database.dto.User;
 import com.mongodb.starter.database.repository.impl.UserRepositoryCustomImpl;
-import org.junit.*;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,16 +37,12 @@ public class UserRepositoryTest {
 
     @Before
     public void loadContext() throws IOException, URISyntaxException {
+        userRepository.deleteAll();
         String[] users = Files.readString(Paths.get(UserRepositoryTest.class.getResource("/users.json").toURI())).split("\r\n");
         ObjectMapper objectMapper = new ObjectMapper();
         for(String user : users) {
             userRepository.save(objectMapper.readValue(user, User.class));
         }
-    }
-
-    @After
-    public void clearContext() {
-        userRepository.deleteAll();
     }
 
     @Test

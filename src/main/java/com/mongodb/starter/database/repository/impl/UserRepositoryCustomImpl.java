@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.starter.database.dto.User;
 import com.mongodb.starter.database.repository.UserRepositoryCustom;
+import lombok.extern.log4j.Log4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
@@ -18,6 +19,7 @@ import static com.mongodb.starter.database.repository.impl.Defines.ID;
 import static org.springframework.data.mongodb.core.query.Criteria.where;
 
 @Repository
+@Log4j
 public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
     private MongoTemplate mongoTemplate;
@@ -40,6 +42,11 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
             update.set(ADDRESS + pair.getKey(), pair.getValue());
         }
 
-        mongoTemplate.findAndModify(query, update, User.class);
+        try {
+            mongoTemplate.findAndModify(query, update, User.class);
+        }
+        catch (Exception e) {
+            //ignore;
+        }
     }
 }
