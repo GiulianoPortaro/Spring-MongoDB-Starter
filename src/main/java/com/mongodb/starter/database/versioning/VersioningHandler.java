@@ -230,14 +230,18 @@ public class VersioningHandler {
                 analyzeResourceType(resource.listFiles(), version, subVersion);
             }
             else if(resource.isFile()) {
+                String resourceName = resource.getName();
+                if(isFalse(resourceName.startsWith("v"))) {
+                    resourceName = "v" + resourceName;
+                }
                 if(resource.getName().contains(version)) {
-                    if(analyzeSubVersion(version, subVersion, resource.getName())) {
-                        log.info(MessageFormat.format("Analyze file[{0}].", resource.getName()));
+                    if(analyzeSubVersion(version, subVersion, resourceName)) {
+                        log.info(MessageFormat.format("Analyze file[{0}].", resourceName));
                         migrationBuild(resource);
                     }
                 }
                 else {
-                    log.info(MessageFormat.format("Analyze file[{0}].", resource.getName()));
+                    log.info(MessageFormat.format("Analyze file[{0}].", resourceName));
                     migrationBuild(resource);
                 }
 
@@ -251,20 +255,28 @@ public class VersioningHandler {
     }
 
     private void migrationBuild(@NotNull File migrationFile) {
+        String fileName = migrationFile.getName();
+
+        if(isFalse(fileName.startsWith("v"))) {
+            fileName = "v" + fileName;
+        }
+
         int totalQuery = 0;
         int successQuery = 0;
         String filePayload;
         try {
             filePayload = Files.readString(migrationFile.toPath()).trim();
             if (StringUtils.isBlank(filePayload)) {
-                log.info(MessageFormat.format("Read empty file[{0}]", migrationFile.getName()));
+                log.info(MessageFormat.format("Read empty file[{0}]", fileName));
                 return;
             }
         }
         catch (IOException e) {
-            log.error(MessageFormat.format("Parse error: file[{}], error[{0}]", migrationFile.getName(), e.getMessage()));
+            log.error(MessageFormat.format("Parse error: file[{}], error[{0}]",fileName, e.getMessage()));
             return;
         }
+
+        StringBuilder description = new StringBuilder();
 
         while(filePayload.contains(")")) {
             try {
@@ -275,15 +287,21 @@ public class VersioningHandler {
                 filePayload = filePayload.substring(filePayload.indexOf(")") + 1).trim();
                 totalQuery++;
                 successQuery++;
+                if(description.toString().isBlank()) {
+                    description = new StringBuilder("Execution of: " + queryModel.getCollectionOperation());
+                }
+                else {
+                    description.append(", ").append(queryModel.getCollectionOperation());
+                }
 
             } catch (UnknownCommandException | UnknownCollectionOperationException u) {
                 log.error(MessageFormat.format("Error during analyze file: type[{0}] file[{1}], error[{2}]", u.getClass(),
-                        migrationFile.getName(), u.getMessage()));
+                        fileName, u.getMessage()));
                 totalQuery++;
             }
         }
-        versioningRepository.insert(new Versioning(migrationFile.getName().split("_")[0], migrationFile.getName(),
-                "", (successQuery / totalQuery) * 100 + "%"));
+        versioningRepository.insert(new Versioning(fileName.split("_")[0], fileName,
+                description.toString(), (successQuery / totalQuery) * 100 + "%"));
     }
 
     private List<Class<?>> getClasses(@NotNull Param param) {
