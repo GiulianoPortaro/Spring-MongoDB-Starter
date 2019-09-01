@@ -18,7 +18,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.*;
@@ -264,7 +263,7 @@ class VersioningUtils {
         return updateOptions;
     }
 
-    private static Collation collationParser(@NotNull JsonNode jsonNode) throws UnknownCommandException {
+    private static Collation collationParser(JsonNode jsonNode) throws UnknownCommandException {
         Iterator<Map.Entry<String, JsonNode>> keyPairs = jsonNode.fields();
         Collation.Builder builder = Collation.builder();
         while(keyPairs.hasNext()) {

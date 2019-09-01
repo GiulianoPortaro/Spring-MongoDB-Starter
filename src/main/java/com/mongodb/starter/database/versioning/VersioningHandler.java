@@ -17,7 +17,6 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.stereotype.Service;
 
-import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -128,7 +127,7 @@ public class VersioningHandler {
         }
     }
 
-    public void migration(@NotNull String version, @NotNull String subVersion) throws InvalidParameterException {
+    public void migration(String version, String subVersion) throws InvalidParameterException {
         if(isFalse(version.startsWith("v"))) {
             version = "v" + version;
         }
@@ -156,7 +155,7 @@ public class VersioningHandler {
         analyzeResourceType(treeResources.listFiles(), version, subVersion);
     }
 
-    public void executeQuery(@NotNull QueryModel queryModel) {
+    public void executeQuery(QueryModel queryModel) {
         Method method;
         List<Param> params = queryModel.getParams();
         int paramsSize = params.size();
@@ -219,7 +218,7 @@ public class VersioningHandler {
         }
     }
 
-    private void analyzeResourceType(File[] resources, @NotNull String version, @NotNull String subVersion) {
+    private void analyzeResourceType(File[] resources, String version, String subVersion) {
         if(isEmpty(resources)) {
             return;
         }
@@ -249,12 +248,12 @@ public class VersioningHandler {
         }
     }
 
-    private boolean analyzeSubVersion(@NotNull String version, @NotNull String subVersion, @NotNull String filename) {
+    private boolean analyzeSubVersion(String version, String subVersion, String filename) {
         return (filename.contains(SUB_VERSION_DELIMITER) && filename.split(SUB_VERSION_DELIMITER)[1].compareTo(subVersion) <= 0)
                 || (filename.compareTo(version) <= 0);
     }
 
-    private void migrationBuild(@NotNull File migrationFile) {
+    private void migrationBuild(File migrationFile) {
         String fileName = migrationFile.getName();
 
         if(isFalse(fileName.startsWith("v"))) {
@@ -303,7 +302,7 @@ public class VersioningHandler {
                 description.toString(), (successQuery / totalQuery) * 100 + "%"));
     }
 
-    private List<Class<?>> getClasses(@NotNull Param param) {
+    private List<Class<?>> getClasses(Param param) {
         List<Class<?>> classes = new ArrayList<>(Arrays.asList(param.getObjectClass().getInterfaces()));
         classes.add(param.getObjectClass());
         classes.add(param.getObjectClass().getSuperclass());
