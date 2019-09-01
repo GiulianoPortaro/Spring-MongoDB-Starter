@@ -3,6 +3,7 @@ package com.mongodb.starter.database.repository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.starter.database.dto.Address;
 import com.mongodb.starter.database.dto.User;
+import com.mongodb.starter.database.repository.impl.UserRepositoryCustomImpl;
 import org.junit.*;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
@@ -28,6 +29,8 @@ public class UserRepositoryTest {
     @Rule public ExpectedException thrown = ExpectedException.none();
 
     @Autowired UserRepository userRepository;
+    @Autowired UserRepositoryCustomImpl userRepositoryCustom;
+    @Autowired ObjectMapper objectMapper;
 
     @Before
     public void loadContext() throws IOException, URISyntaxException {
@@ -86,6 +89,16 @@ public class UserRepositoryTest {
         user.setName("Gino");
         userRepository.save(user);
         Assert.assertEquals("Gino", userRepository.findByMail("antonio.rossi@mail.com").orElseThrow().getName());
+    }
+
+    @Test
+    public void updateAddress() {
+        User user = userRepository.findByMail("antonio.rossi@mail.com").orElseThrow();
+        Address address = new Address("Via delle Città", "PA", 56);
+        userRepositoryCustom.updateAddress(user.getId(), objectMapper.valueToTree(address));
+        User userNew = userRepository.findByMail("antonio.rossi@mail.com").orElseThrow();
+        user.setAddress(address);
+        Assert.assertEquals(user, userNew);
     }
 
     private User createUser(String mail) {

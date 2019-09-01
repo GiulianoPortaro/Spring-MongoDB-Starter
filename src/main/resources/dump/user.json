@@ -1,0 +1,45 @@
+﻿{
+  "_id" : ObjectId("5d6bbff7d5471828b820f7b9"),
+  "name" : "Antonio",
+  "surname" : "Rossi",
+  "mail" : "antonio.rossi@mail.com",
+  "age" : 41,
+  "address" : {
+    "address" : "Via del Portico",
+    "province" : "TO",
+    "number" : 43
+  },
+  "created_date" : ISODate("2019-09-01T12:56:23.152Z"),
+  "modified_date" : ISODate("2019-09-01T12:56:23.152Z"),
+  "_class" : "com.mongodb.starter.database.dto.User"
+}
+{
+  "_id" : ObjectId("5d6bbff9d5471828b820f7ba"),
+  "name" : "Paolo",
+  "surname" : "Bianchi",
+  "mail" : "paolo.bianchi@mail.com",
+  "age" : 21,
+  "address" : {
+    "address" : "Via del Fuoco",
+    "province" : "CT",
+    "number" : 123
+  },
+  "created_date" : ISODate("2019-09-01T12:56:25.236Z"),
+  "modified_date" : ISODate("2019-09-01T12:56:25.236Z"),
+  "_class" : "com.mongodb.starter.database.dto.User"
+}
+{
+  "_id" : ObjectId("5d6bbffad5471828b820f7bb"),
+  "name" : "Franco Paolo",
+  "surname" : "Bianchi",
+  "mail" : "francopaolo.bianchi@mail.com",
+  "age" : 21,
+  "address" : {
+    "address" : "Via del Fuoco",
+    "province" : "CT",
+    "number" : 123
+  },
+  "created_date" : ISODate("2019-09-01T12:56:26.006Z"),
+  "modified_date" : ISODate("2019-09-01T12:56:26.006Z"),
+  "_class" : "com.mongodb.starter.database.dto.User"
+}

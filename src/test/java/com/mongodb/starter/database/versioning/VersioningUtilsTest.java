@@ -12,6 +12,8 @@ import com.mongodb.starter.database.versioning.exception.UnknownCollectionOperat
 import com.mongodb.starter.database.versioning.exception.UnknownCommandException;
 import com.mongodb.starter.database.versioning.models.QueryModel;
 import org.bson.Document;
+import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import static com.mongodb.starter.utils.StringUtils.splitWithDelimiter;
+
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @TestPropertySource(locations= "classpath:test.properties")
@@ -36,19 +40,8 @@ public class VersioningUtilsTest {
     @Autowired VersioningRepository versioningRepository;
     private VersioningHandler versioningHandler;
 
-    private void tearsUp() {
-        try {
-            versioningHandler = new VersioningHandler(mongoTemplate, starterConfiguration, versioningRepository, objectMapper);
-            mongoTemplate.getDb().drop();
-            mongoTemplate.getDb().createCollection("user");
-            mongoTemplate.getDb().getCollection("user").createIndex(BasicDBObject.parse("{mail:1}"), new IndexOptions().name("mail"));
-        }
-        catch (Exception e) {
-            //ignore
-        }
-    }
-
-    private void cleanUp() {
+    @After
+    public void cleanUp() {
         mongoTemplate.getDb().drop();
     }
 
@@ -150,21 +143,52 @@ public class VersioningUtilsTest {
         migrationOperation(query);
     }
 
-    @Test(expected = UnknownCommandException.class)
+    @Test
     public void executeQuery_exception_unknownCommand() {
-
+        try {
+            String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/exception_unknownCommand").toURI())).trim();
+            migrationOperation(query);
+        }
+        catch (UnknownCommandException e) {
+            cleanUp();
+        }
+        catch (Exception e) {
+            cleanUp();
+            Assert.fail();
+        }
     }
 
-    @Test(expected = UnknownCollectionOperationException.class)
+    @Test
     public void executeQuery_exception_unknownCollectionOperation() {
+        try {
+            String query = Files.readString(Paths.get(VersioningUtilsTest.class.getResource("/versioning/exception_unknownCollectionOperation").toURI())).trim();
+            migrationOperation(query);
+        }
+        catch (UnknownCollectionOperationException e) {
+            //ignore
+        }
+        catch (Exception e) {
+            Assert.fail();
+        }
+    }
 
+    private void tearsUp() {
+        try {
+            versioningHandler = new VersioningHandler(mongoTemplate, starterConfiguration, versioningRepository, objectMapper);
+            mongoTemplate.getDb().drop();
+            mongoTemplate.getDb().createCollection("user");
+            mongoTemplate.getDb().getCollection("user").createIndex(BasicDBObject.parse("{mail:1}"), new IndexOptions().name("mail"));
+        }
+        catch (Exception e) {
+            //ignore
+        }
     }
 
     private void migrationOperation(String query) throws UnknownCommandException, UnknownCollectionOperationException {
         while(query.contains(")")) {
             tearsUp();
             QueryModel queryModel = VersioningUtils.queryAnalyze(
-                    VersioningUtils.splitWithDelimiter(query, "(", ")", "\\.").toArray(), objectMapper, starterConfiguration);
+                    splitWithDelimiter(query, "(", ")", "\\.").toArray(), objectMapper, starterConfiguration);
             versioningHandler.executeQuery(queryModel);
             query = query.substring(query.indexOf(")") + 1).trim();
         }

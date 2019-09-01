@@ -23,7 +23,8 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.*;
 
-import static org.apache.commons.lang3.BooleanUtils.isFalse;
+import static com.mongodb.starter.utils.StringUtils.countOccurences;
+import static com.mongodb.starter.utils.StringUtils.subStringWithDelimiter;
 
 public class VersioningUtils {
 
@@ -37,11 +38,21 @@ public class VersioningUtils {
             operation = queryParts[3].trim();
             queryModel = new QueryModel(queryParts[1], queryParts[2]);
             selector = countOccurences(operation, '{', '}');
-            collectionOperations = Defines.CollectionOperations.valueOf(queryParts[2]);
+            try {
+                collectionOperations = Defines.CollectionOperations.valueOf(queryParts[2]);
+            }
+            catch (Exception e) {
+                throw new UnknownCollectionOperationException("Unknown collection operation: " + queryParts[2]);
+            }
         }
         else {
             queryModel = new QueryModel(true);
-            collectionOperations = Defines.CollectionOperations.valueOf(queryParts[1]);
+            try {
+                collectionOperations = Defines.CollectionOperations.valueOf(queryParts[1]);
+            }
+            catch (Exception e) {
+                throw new UnknownCollectionOperationException("Unknown collection operation: " + queryParts[2]);
+            }
         }
         try {
             switch (collectionOperations) {
@@ -168,7 +179,7 @@ public class VersioningUtils {
                     break;
                 }
                 default:
-                    throw new UnknownCollectionOperationException("Unknown collection operation.");
+                    throw new UnknownCollectionOperationException("Unknown collection operation: " + collectionOperations);
             }
         }
         catch (UnknownCommandException | UnknownCollectionOperationException u) {
@@ -204,55 +215,6 @@ public class VersioningUtils {
         indexOptions.storageEngine(storageEngine);
         indexOptions.partialFilterExpression(partialFilterExpression);
         return indexOptions;
-    }
-
-    private static String subStringWithDelimiter(String someString, char startChar, char endChar) {
-        int index = 0;
-        int endOccurrences = 0;
-        int startIndex = 0;
-        boolean found = false;
-        int endIndex = 0;
-        while(index < someString.length()) {
-            if(someString.charAt(index) == startChar && isFalse(found)) {
-                startIndex = index;
-                found = true;
-                endOccurrences++;
-            }
-            else if(someString.charAt(index) == startChar && found) {
-                endOccurrences++;
-            }
-            else if(someString.charAt(index) == endChar) {
-                endOccurrences--;
-                if(someString.charAt(index) == endChar && endOccurrences == 0 && found) {
-                    endIndex = index;
-                }
-            }
-            if(endIndex != 0) {
-                break;
-            }
-            index++;
-        }
-        return someString.substring(startIndex, endIndex + 1);
-    }
-
-    private static int countOccurences(String someString, char startChar, char endChar) {
-        int index = 0;
-        int occurences = 0;
-        int endOccurrences = 0;
-        while(index < someString.length()) {
-            if(someString.charAt(index) == startChar && endOccurrences == 0) {
-                occurences++;
-                endOccurrences++;
-            }
-            else if(someString.charAt(index) == startChar && endOccurrences != 0) {
-                endOccurrences++;
-            }
-            else if(someString.charAt(index) == endChar) {
-                endOccurrences--;
-            }
-            index++;
-        }
-        return occurences;
     }
 
     private static UpdateOptions updateOptionsParser(JsonNode jsonNode, QueryModel queryModel) throws UnknownCommandException {
@@ -338,14 +300,5 @@ public class VersioningUtils {
             }
         }
         return builder.build();
-    }
-
-    public static List<String> splitWithDelimiter(String stringToSplit, String startDelimiter, String endDelimiter, String regex) {
-        stringToSplit = stringToSplit.replace(";", "").trim();
-        String firstPart = stringToSplit.substring(0, stringToSplit.indexOf(startDelimiter)).trim();
-        String secondPart = stringToSplit.substring(stringToSplit.indexOf(startDelimiter) + 1, stringToSplit.indexOf(endDelimiter)).trim();
-        List<String> ret =  new ArrayList<>(Arrays.asList(firstPart.split(regex)));
-        ret.add(secondPart);
-        return ret;
     }
 }

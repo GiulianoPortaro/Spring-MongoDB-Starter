@@ -1,6 +1,8 @@
 package com.mongodb.starter.database.versioning;
 
 import com.mongodb.starter.database.versioning.exception.InvalidParameterException;
+import org.junit.After;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,31 +19,49 @@ public class VersioningHandlerTest {
     @Autowired VersioningHandler versioningHandler;
     @Autowired MongoTemplate mongoTemplate;
 
-    private void cleanUp() {
+    @After
+    public void cleanUp() {
         mongoTemplate.getDb().drop();
     }
 
     @Test
     public void databaseBuild() {
         versioningHandler.databaseBuild();
-        cleanUp();
     }
 
     @Test
     public void migration() throws InvalidParameterException {
         versioningHandler.migration("v1.1", "1");
-        cleanUp();
     }
 
-    @Test(expected = InvalidParameterException.class)
-    public void migration_exception_version() throws InvalidParameterException {
-        versioningHandler.migration("v1.1vfde", "1");
-        cleanUp();
+    @Test
+    public void migration_exception_version() {
+        try {
+            versioningHandler.migration("v1.1vfde", "1");
+        }
+        catch (InvalidParameterException e) {
+            //ignore
+        }
+        catch (Exception e) {
+            Assert.fail();
+        }
     }
 
-    @Test(expected = InvalidParameterException.class)
-    public void migration_exception_subversion() throws InvalidParameterException {
-        versioningHandler.migration("v1.1", "1e3d");
-        cleanUp();
+    @Test
+    public void migration_exception_subversion() {
+        try {
+            versioningHandler.migration("v1.1", "1e3d");
+        }
+        catch (InvalidParameterException e) {
+            //ignore
+        }
+        catch (Exception e) {
+            Assert.fail();
+        }
+    }
+
+    @Test
+    public void restore_dumps() {
+        versioningHandler.restore_dumps();
     }
 }

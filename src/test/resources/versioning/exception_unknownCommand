@@ -1,0 +1,1 @@
+db.user.createIndex( { "name": 1 }, { "name": "name_in", "collation": { "normalization": true, "locacdle": "es", "strength": 2 } } )
