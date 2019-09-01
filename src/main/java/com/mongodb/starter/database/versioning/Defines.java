@@ -1,11 +1,12 @@
 package com.mongodb.starter.database.versioning;
 
-public class Defines {
+class Defines {
 
-    public final static String SUB_VERSION_DELIMITER = "_";
-    public final static String VERSION_REGEX = "(?<=^|)\\d+(\\.\\d+)?(?=$|)";
+    final static String SUB_VERSION_DELIMITER = "_";
+    final static String VERSION_REGEX = "(?<=^|)\\d+(\\.\\d+)?(?=$|)";
+    final static String GET_COLLECTION = "getCollection";
 
-    public enum CollectionOperations {
+    enum CollectionOperations {
         createCollection,
         createIndex,
         createIndexes,
@@ -24,7 +25,7 @@ public class Defines {
         updateMany
     }
 
-    public enum CollationField {
+    enum CollationField {
         locale,
         caseLevel,
         caseFirst,
@@ -36,7 +37,7 @@ public class Defines {
         backwards
     }
 
-    public enum UpdateOptionsField {
+    enum UpdateOptionsField {
         upsert,
         collation,
         arrayFilters,

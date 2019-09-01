@@ -234,7 +234,7 @@ public class VersioningHandler {
                 if(isFalse(resourceName.startsWith("v"))) {
                     resourceName = "v" + resourceName;
                 }
-                if(resource.getName().contains(version)) {
+                if(resourceName.contains(version)) {
                     if(analyzeSubVersion(version, subVersion, resourceName)) {
                         log.info(MessageFormat.format("Analyze file[{0}].", resourceName));
                         migrationBuild(resource);
@@ -276,7 +276,9 @@ public class VersioningHandler {
             return;
         }
 
-        StringBuilder description = new StringBuilder();
+        StringBuilder description = new StringBuilder("The file contained the execution of the following queries: ");
+
+        filePayload = VersioningUtils.evaluateQueryValidity(filePayload);
 
         while(filePayload.contains(")")) {
             try {
@@ -287,13 +289,10 @@ public class VersioningHandler {
                 filePayload = filePayload.substring(filePayload.indexOf(")") + 1).trim();
                 totalQuery++;
                 successQuery++;
-                if(description.toString().isBlank()) {
-                    description = new StringBuilder("Execution of: " + queryModel.getCollectionOperation());
-                }
-                else {
-                    description.append(", ").append(queryModel.getCollectionOperation());
-                }
-
+                description.append(", ")
+                        .append(queryModel.getCollectionOperation())
+                        .append(" (collection: ").
+                        append(queryModel.getCollectionName()).append(")");
             } catch (UnknownCommandException | UnknownCollectionOperationException u) {
                 log.error(MessageFormat.format("Error during analyze file: type[{0}] file[{1}], error[{2}]", u.getClass(),
                         fileName, u.getMessage()));

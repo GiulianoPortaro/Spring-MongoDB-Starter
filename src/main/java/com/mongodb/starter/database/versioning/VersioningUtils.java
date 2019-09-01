@@ -23,12 +23,21 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.*;
 
+import static com.mongodb.starter.database.versioning.Defines.GET_COLLECTION;
 import static com.mongodb.starter.utils.StringUtils.countOccurences;
 import static com.mongodb.starter.utils.StringUtils.subStringWithDelimiter;
 
-public class VersioningUtils {
+class VersioningUtils {
 
-    public static QueryModel queryAnalyze(Object[] objects, ObjectMapper objectMapper, StarterConfiguration starterConfiguration) throws UnknownCommandException, UnknownCollectionOperationException {
+    static String evaluateQueryValidity(String filePayload) {
+        if(filePayload.contains(GET_COLLECTION)) {
+            String collectionName = filePayload.substring(filePayload.indexOf("(") + 2, filePayload.indexOf(")") - 1);
+            filePayload = filePayload.replace(GET_COLLECTION + "(\"" + collectionName + "\")", collectionName);
+        }
+        return filePayload;
+    }
+
+    static QueryModel queryAnalyze(Object[] objects, ObjectMapper objectMapper, StarterConfiguration starterConfiguration) throws UnknownCommandException, UnknownCollectionOperationException {
         String[] queryParts = Arrays.copyOf(objects, objects.length, String[].class);
         String operation = "";
         QueryModel queryModel;
